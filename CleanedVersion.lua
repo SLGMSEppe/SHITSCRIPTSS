@@ -2117,9 +2117,5 @@ if game.PlaceId == 8343259840 then
 
 	end)
 
-	if not Success and Error then
-		pcall(function()
-			local MSGBox = messagebox("this shit errord mane", "The pasting has failed...", 0)
-		end)
 	end
 end
