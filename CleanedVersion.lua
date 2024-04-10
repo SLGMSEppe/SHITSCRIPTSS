@@ -2117,5 +2117,4 @@ if game.PlaceId == 8343259840 then
 
 	end)
 
-	end
 end
