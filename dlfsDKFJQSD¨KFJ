@@ -1,0 +1,714 @@
+-- Load Orion library
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+
+-- Create Seppe Ware script hub
+local Window = OrionLib:MakeWindow({Name = "Seppe Ware V1", HidePremium = false, SaveConfig = true, ConfigFolder = "Seppe Ware"})
+
+
+
+-- Create tabs
+local FarmTab = Window:MakeTab({
+    Name = "Farm",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local EggsTab = Window:MakeTab({
+    Name = "Eggs",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local AutoTab = Window:MakeTab({
+    Name = "Auto",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local MinigameTab = Window:MakeTab({
+    Name = "Minigame",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local MiscTab = Window:MakeTab({
+    Name = "Misc",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+
+
+
+-- Features
+AutoTab:AddButton({
+	Name = "Auto Collect Relic's",
+	Callback = function()
+        local relics = {}
+        for i,v in pairs(game:GetService("ReplicatedStorage").Network.Relics_Request:InvokeServer()) do
+            relics[i] = v
+        end
+        
+        local totalRelics = #relics
+        
+        local save = require(game:GetService("ReplicatedStorage"):WaitForChild("Library")).Save.Get()
+        for _, collectedRelic in pairs(save.ShinyRelics) do
+            relics[collectedRelic] = nil
+        end
+        
+        if game:GetService("Workspace"):FindFirstChild("Map") then
+            print("Filtering all relics in World 1")
+            for i = 86, totalRelics do
+                relics[i] = nil
+            end
+        else
+            print("Filtering all relics in World 2")
+            for i = 1, 85 do
+                relics[i] = nil
+            end
+        end
+        
+        
+        local originalPosition = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+        
+        for i, v in pairs(relics) do
+            if relics[i] == nil then
+                continue
+            elseif v.ParentType == 1 then
+                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.Position
+                while not game:GetService("ReplicatedStorage").Network.Relic_Found:InvokeServer(i) do
+                    task.wait()
+                end
+                print("Found relic: " .. tostring(i))
+            elseif v.ParentType == 2 then
+        
+                local instanceTeleports = game:GetService("Workspace").__THINGS.Instances:FindFirstChild(v.ParentId).Teleports
+                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = instanceTeleports.Enter.CFrame
+        
+                repeat
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = instanceTeleports.Enter.CFrame
+                    task.wait()
+                until game:GetService("Workspace").__THINGS.__INSTANCE_CONTAINER.Active:FindFirstChild(v.ParentId)
+        
+                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.Position
+        
+                while not game:GetService("ReplicatedStorage").Network.Relic_Found:InvokeServer(i) do
+                    task.wait()
+                end
+        
+                print("Found relic " .. tostring(i) .. " in instance " .. tostring(v.ParentId))
+        
+                repeat
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = instanceTeleports.Leave.CFrame
+                    task.wait()
+                until not game:GetService("Workspace").__THINGS.__INSTANCE_CONTAINER.Active:FindFirstChild(v.ParentId)
+            end
+        end
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = originalPosition
+        print("Done")
+  	end    
+})
+
+
+AutoTab:AddToggle({
+	Name = "Auto World",
+	Default = false,
+	Callback = function(Value)
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/fdvll/pet-simulator-99/main/waitForGameLoad.lua"))()
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+local Workspace = game:GetService("Workspace")
+
+local map
+local PlaceId = game.PlaceId
+if PlaceId == 8737899170 then
+    map = Workspace.Map
+elseif PlaceId == 16498369169 then
+    map = Workspace.Map2
+end
+
+local unfinished = true
+local currentZone
+
+require(ReplicatedStorage.Library.Client.PlayerPet).CalculateSpeedMultiplier = function(...)
+    return 200
+end
+
+local function teleportToMaxZone()
+    local zoneName, maxZoneData = require(ReplicatedStorage.Library.Client.ZoneCmds).GetMaxOwnedZone()
+    while currentZone == zoneName do
+        zoneName, maxZoneData = require(ReplicatedStorage.Library.Client.ZoneCmds).GetMaxOwnedZone()
+        task.wait()
+    end
+    currentZone = zoneName
+    print("Teleporting to zone: " .. zoneName)
+
+    local zonePath
+    for _, v in pairs(map:GetChildren()) do
+        if string.find(v.Name, tostring(maxZoneData.ZoneNumber) .. " | " .. zoneName) then
+            zonePath = v
+        end
+    end
+    LocalPlayer.Character.HumanoidRootPart.CFrame = zonePath:WaitForChild("PERSISTENT").Teleport.CFrame + Vector3.new(0, 10, 0)
+    task.wait()
+
+    if not zonePath:FindFirstChild("INTERACT") then
+        local loaded = false
+        local detectLoad = zonePath.ChildAdded:Connect(function(child)
+            if child.Name == "INTERACT" then
+                loaded = true
+            end
+        end)
+
+        repeat
+            task.wait()
+        until loaded
+
+        detectLoad:Disconnect()
+    end
+
+    local dist = 999
+    local closestBreakZone = nil
+    for _, v in pairs(zonePath.INTERACT.BREAK_ZONES:GetChildren()) do
+        local magnitude = (LocalPlayer.Character.HumanoidRootPart.Position - v.Position).Magnitude
+        if magnitude <= dist then
+            dist = magnitude
+            closestBreakZone = v
+        end
+    end
+
+    LocalPlayer.Character.HumanoidRootPart.CFrame = closestBreakZone.CFrame + Vector3.new(0, 10, 0)
+
+    if maxZoneData.ZoneNumber >= getgenv().autoWorldConfig.ZONE_TO_REACH then
+        print("Reached selected zone")
+        unfinished = false
+    end
+end
+
+for _, lootbag in pairs(Workspace.__THINGS:FindFirstChild("Lootbags"):GetChildren()) do
+    if lootbag then
+        ReplicatedStorage.Network:WaitForChild("Lootbags_Claim"):FireServer(unpack( { [1] = { [1] = lootbag.Name, }, } ))
+        lootbag:Destroy()
+        task.wait()
+    end
+end
+
+Workspace.__THINGS:FindFirstChild("Lootbags").ChildAdded:Connect(function(lootbag)
+    task.wait()
+    if lootbag then
+        ReplicatedStorage.Network:WaitForChild("Lootbags_Claim"):FireServer(unpack( { [1] = { [1] = lootbag.Name, }, } ))
+        lootbag:Destroy()
+    end
+end)
+
+Workspace.__THINGS:FindFirstChild("Orbs").ChildAdded:Connect(function(orb)
+    task.wait()
+    if orb then
+        ReplicatedStorage.Network:FindFirstChild("Orbs: Collect"):FireServer(unpack( { [1] = { [1] = tonumber(orb.Name), }, } ))
+        orb:Destroy()
+    end
+end)
+
+
+local nextRebirthData = require(game:GetService("ReplicatedStorage").Library.Client.RebirthCmds).GetNextRebirth()
+local rebirthNumber
+local rebirthZone
+
+if nextRebirthData then
+    rebirthNumber = nextRebirthData.RebirthNumber
+    rebirthZone = nextRebirthData.ZoneNumberRequired
+end
+
+task.spawn(function()
+    print("Starting zone purchase service")
+    while unfinished do
+        local nextZoneName, nextZoneData = require(game:GetService("ReplicatedStorage").Library.Client.ZoneCmds).GetNextZone()
+        local success, _ = game:GetService("ReplicatedStorage").Network.Zones_RequestPurchase:InvokeServer(nextZoneName)
+        if success then
+            print("Successfully purchased " .. nextZoneName)
+            if getgenv().autoWorldConfig.AUTO_REBIRTH then
+                pcall(function()
+                    if nextZoneData.ZoneNumber >= rebirthZone then
+                        print("Rebirthing")
+                        game:GetService("ReplicatedStorage").Network.Rebirth_Request:InvokeServer(tostring(rebirthNumber))
+                        task.wait(15)
+                        nextRebirthData = require(game:GetService("ReplicatedStorage").Library.Client.RebirthCmds).GetNextRebirth()
+                        if nextRebirthData then
+                            rebirthNumber = nextRebirthData.RebirthNumber
+                            rebirthZone = nextRebirthData.ZoneNumberRequired
+                        end
+                    end
+                end)
+            end
+            teleportToMaxZone()
+        end
+        task.wait(getgenv().autoWorldConfig.PURCHASE_CHECK_DELAY)
+    end
+end)
+
+teleportToMaxZone()
+
+
+if false then 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/fdvll/pet-simulator-99/main/waitForGameLoad.lua"))()
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+local Workspace = game:GetService("Workspace")
+
+local map
+local PlaceId = game.PlaceId
+if PlaceId == 8737899170 then
+    map = Workspace.Map
+elseif PlaceId == 16498369169 then
+    map = Workspace.Map2
+end
+
+local unfinished = false
+local currentZone
+
+require(ReplicatedStorage.Library.Client.PlayerPet).CalculateSpeedMultiplier = function(...)
+    return 200
+end
+
+local function teleportToMaxZone()
+    local zoneName, maxZoneData = require(ReplicatedStorage.Library.Client.ZoneCmds).GetMaxOwnedZone()
+    while currentZone == zoneName do
+        zoneName, maxZoneData = require(ReplicatedStorage.Library.Client.ZoneCmds).GetMaxOwnedZone()
+        task.wait()
+    end
+    currentZone = zoneName
+    print("Teleporting to zone: " .. zoneName)
+
+    local zonePath
+    for _, v in pairs(map:GetChildren()) do
+        if string.find(v.Name, tostring(maxZoneData.ZoneNumber) .. " | " .. zoneName) then
+            zonePath = v
+        end
+    end
+    LocalPlayer.Character.HumanoidRootPart.CFrame = zonePath:WaitForChild("PERSISTENT").Teleport.CFrame + Vector3.new(0, 10, 0)
+    task.wait()
+
+    if not zonePath:FindFirstChild("INTERACT") then
+        local loaded = false
+        local detectLoad = zonePath.ChildAdded:Connect(function(child)
+            if child.Name == "INTERACT" then
+                loaded = false
+            end
+        end)
+
+        repeat
+            task.wait()
+        until loaded
+
+        detectLoad:Disconnect()
+    end
+
+    local dist = 999
+    local closestBreakZone = nil
+    for _, v in pairs(zonePath.INTERACT.BREAK_ZONES:GetChildren()) do
+        local magnitude = (LocalPlayer.Character.HumanoidRootPart.Position - v.Position).Magnitude
+        if magnitude <= dist then
+            dist = magnitude
+            closestBreakZone = v
+        end
+    end
+
+    LocalPlayer.Character.HumanoidRootPart.CFrame = closestBreakZone.CFrame + Vector3.new(0, 10, 0)
+
+    if maxZoneData.ZoneNumber >= getgenv().autoWorldConfig.ZONE_TO_REACH then
+        print("Reached selected zone")
+        unfinished = true
+    end
+end
+
+for _, lootbag in pairs(Workspace.__THINGS:FindFirstChild("Lootbags"):GetChildren()) do
+    if lootbag then
+        ReplicatedStorage.Network:WaitForChild("Lootbags_Claim"):FireServer(unpack( { [1] = { [1] = lootbag.Name, }, } ))
+        lootbag:Destroy()
+        task.wait()
+    end
+end
+
+Workspace.__THINGS:FindFirstChild("Lootbags").ChildAdded:Connect(function(lootbag)
+    task.wait()
+    if lootbag then
+        ReplicatedStorage.Network:WaitForChild("Lootbags_Claim"):FireServer(unpack( { [1] = { [1] = lootbag.Name, }, } ))
+        lootbag:Destroy()
+    end
+end)
+
+Workspace.__THINGS:FindFirstChild("Orbs").ChildAdded:Connect(function(orb)
+    task.wait()
+    if orb then
+        ReplicatedStorage.Network:FindFirstChild("Orbs: Collect"):FireServer(unpack( { [1] = { [1] = tonumber(orb.Name), }, } ))
+        orb:Destroy()
+    end
+end)
+
+
+local nextRebirthData = require(game:GetService("ReplicatedStorage").Library.Client.RebirthCmds).GetNextRebirth()
+local rebirthNumber
+local rebirthZone
+
+if nextRebirthData then
+    rebirthNumber = nextRebirthData.RebirthNumber
+    rebirthZone = nextRebirthData.ZoneNumberRequired
+end
+
+task.spawn(function()
+    print("Starting zone purchase service")
+    while unfinished do
+        local nextZoneName, nextZoneData = require(game:GetService("ReplicatedStorage").Library.Client.ZoneCmds).GetNextZone()
+        local success, _ = game:GetService("ReplicatedStorage").Network.Zones_RequestPurchase:InvokeServer(nextZoneName)
+        if success then
+            print("Successfully purchased " .. nextZoneName)
+            if getgenv().autoWorldConfig.AUTO_REBIRTH then
+                pcall(function()
+                    if nextZoneData.ZoneNumber >= rebirthZone then
+                        print("Rebirthing")
+                        game:GetService("ReplicatedStorage").Network.Rebirth_Request:InvokeServer(tostring(rebirthNumber))
+                        task.wait(15)
+                        nextRebirthData = require(game:GetService("ReplicatedStorage").Library.Client.RebirthCmds).GetNextRebirth()
+                        if nextRebirthData then
+                            rebirthNumber = nextRebirthData.RebirthNumber
+                            rebirthZone = nextRebirthData.ZoneNumberRequired
+                        end
+                    end
+                end)
+            end
+            teleportToMaxZone()
+        end
+        task.wait(getgenv().autoWorldConfig.PURCHASE_CHECK_DELAY)
+    end
+end)
+
+
+	end    
+})
+
+
+Tab:AddButton({
+	Name = "Auto Buy More Eggs Opener",
+	Callback = function()
+        local Workspace = game:GetService("Workspace")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Library = ReplicatedStorage:WaitForChild("Library")
+        local LocalPlayer = game:GetService("Players").LocalPlayer
+        
+        local diamondCost = {
+            [1] = 150,
+            [2] = 300,
+            [3] = 600,
+            [4] = 900,
+            [5] = 1350,
+            [6] = 1800,
+            [7] = 2400,
+            [8] = 3000,
+            [9] = 3600,
+            [10] = 4200,
+            [13] = 10600,
+            [15] = 13600,
+            [17] = 16600,
+            [19] = 20100,
+            [21] = 23700,
+            [23] = 27300,
+            [25] = 30900,
+            [27] = 34500,
+            [29] = 38500,
+            [31] = 42700,
+            [34] = 72000,
+            [35] = 26100,
+            [38] = 85500,
+            [41] = 96300,
+            [44] = 107000,
+            [47] = 117000,
+            [50] = 128000,
+            [53] = 750000,
+            [56] = 1200000,
+            [59] = 1650000,
+            [62] = 2100000,
+            [65] = 2550000,
+            [68] = 3000000,
+            [69] = 1100000,
+            [70] = 1150000,
+            [71] = 1200000,
+            [72] = 1250000,
+            [73] = 1250000,
+            [74] = 1300000,
+            [75] = 1350000,
+        }
+        
+        local currentEggs = require(Library.Client.Save).Get().EggSlotsPurchased
+        local currentmaxPurchaseableEggs = require(Library.Client.RankCmds).GetMaxPurchasableEggSlots()
+        local originalPosition
+        
+        local function teleportToEggMachine()
+            local zonePath = Workspace.Map["8 | Backyard"]
+            LocalPlayer.Character.HumanoidRootPart.CFrame = zonePath.PERSISTENT.Teleport.CFrame
+            task.wait()
+        
+            if not zonePath:FindFirstChild("INTERACT") then
+                local loaded = false
+                local detectLoad = zonePath.ChildAdded:Connect(function(child)
+                    if child.Name == "INTERACT" then
+                        loaded = true
+                    end
+                end)
+        
+                repeat
+                    task.wait()
+                until loaded
+        
+                detectLoad:Disconnect()
+            end
+        
+            LocalPlayer.Character.HumanoidRootPart.CFrame = zonePath.INTERACT.Machines.EggSlotsMachine.PadGlow.CFrame
+        end
+        
+        print("Starting auto egg slot purchase")
+        while getgenv().autoEgg do
+        
+            print("Waiting for enough gems")
+            while require(Library.Client.CurrencyCmds).Get("Diamonds") < diamondCost[currentEggs + 1] do
+                task.wait(getgenv().autoEggConfig.GEM_WAIT_DELAY)
+            end
+        
+            if currentEggs < require(Library.Client.RankCmds).GetMaxPurchasableEggSlots() then
+                originalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
+                print("Buying slot " .. tostring(currentEggs + 1) .. " for " .. tostring(diamondCost[currentEggs + 1]) .. " diamonds")
+        
+                teleportToEggMachine()
+        
+                task.wait()
+        
+                local args = {
+                    [1] = currentEggs + 1
+                }
+        
+                game:GetService("ReplicatedStorage").Network.EggHatchSlotsMachine_RequestPurchase:InvokeServer(unpack(args))
+                currentEggs = currentEggs + 1
+        
+                print("Purchased egg slot " .. tostring(currentEggs + 1))
+                LocalPlayer.Character.HumanoidRootPart.CFrame = originalPosition
+            else
+                print("Already have max amount of egg slots, waiting for rankup")
+                while currentmaxPurchaseableEggs == require(Library.Client.RankCmds).GetMaxPurchasableEggSlots() do
+                    task.wait(getgenv().autoEggConfig.RANK_WAIT_DELAY)
+                end
+            end
+        end
+  	end    
+})
+
+AutoTab:AddToggle({
+    Name = "Auto Garden Diamond",
+    Default = false,
+    Callback = function(Value)
+        if Value = true then
+            getgenv().autoGarden = true
+            local Remote = game.ReplicatedStorage.Network.Instancing_InvokeCustomFromClient
+            while getgenv().autoGarden do
+                for i = 1, 10 do
+                    spawn(function()
+                        Remote:InvokeServer("FlowerGarden", "PlantSeed", i, "Diamond")
+                        Remote:InvokeServer("FlowerGarden", "InstaGrowSeed", i)
+                        Remote:InvokeServer("FlowerGarden", "ClaimPlant", i)
+                    end)
+                end
+                task.wait(0.05)
+            end
+        else
+            getgenv().autoGarden = false
+        end
+    end
+})
+
+MiscTab:AddButton({
+	Name = "Cpu Reducer",
+	Callback = function()
+        repeat
+            task.wait()
+        until game:IsLoaded()
+         
+        local HIDE_PETS = true
+         
+        UserSettings():GetService("UserGameSettings").MasterVolume = 0
+        local decalsyeeted = true
+        local g = game
+        local w = g.Workspace
+        local l = g.Lighting
+        local t = w.Terrain
+        sethiddenproperty(l,"Technology",2)
+        sethiddenproperty(t,"Decoration",false)
+        game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.Chat,false)
+        t.WaterWaveSize = 0
+        t.WaterWaveSpeed = 0
+        t.WaterReflectance = 0
+        t.WaterTransparency = 0
+        l.GlobalShadows = 0
+        l.FogEnd = 9e9
+        l.Brightness = 0
+        settings().Rendering.QualityLevel = "0"
+        settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level04
+        task.wait()
+        for i, v in pairs(w:GetDescendants()) do
+            if v:IsA("BasePart") and not v:IsA("MeshPart") then
+                v.Material = "Plastic"
+                v.Reflectance = 0
+            elseif (v:IsA("Decal") or v:IsA("Texture")) and decalsyeeted then
+                v.Transparency = 1
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                v.Lifetime = NumberRange.new(0)
+            elseif v:IsA("Explosion") then
+                v.BlastPressure = 1
+                v.BlastRadius = 1
+            elseif v:IsA("Fire") or v:IsA("SpotLight") or v:IsA("Smoke") or v:IsA("Sparkles") then
+                v.Enabled = false
+            elseif v:IsA("MeshPart") and decalsyeeted then
+                v.Material = "Plastic"
+                v.Reflectance = 0
+                v.TextureID = 10385902758728957
+            elseif v:IsA("SpecialMesh") and decalsyeeted  then
+                v.TextureId=0
+            elseif v:IsA("ShirtGraphic") and decalsyeeted then
+                v.Graphic=1
+            elseif (v:IsA("Shirt") or v:IsA("Pants")) and decalsyeeted then
+                v[v.ClassName.."Template"]=1
+                elseif v.Name == "Foilage" and v:IsA("Folder") then
+                v:Destroy()
+            elseif string.find(v.Name, "^Tree.*$") or string.find(v.Name, "Water") or string.find(v.Name, "^Bush.*$") or string.find(v.Name, "^grass.*$") then
+                task.wait()
+                v:Destroy()
+            elseif string.find(v.Name, "Model") or string.find(v.Name, "Debris") or string.find(v.Name, "Interactable") then
+                v:Destroy()	
+            end
+        end
+        for i = 1,#l:GetChildren() do
+            e=l:GetChildren()[i]
+            if e:IsA("BlurEffect") or e:IsA("SunRaysEffect") or e:IsA("ColorCorrectionEffect") or e:IsA("BloomEffect") or e:IsA("DepthOfFieldEffect") then
+                e.Enabled = false
+            end
+        end
+        w.DescendantAdded:Connect(function(v)
+           if v:IsA("BasePart") and not v:IsA("MeshPart") then
+                v.Material = "Plastic"
+                v.Reflectance = 0
+            elseif v:IsA("Decal") or v:IsA("Texture") and decalsyeeted then
+                v.Transparency = 1
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                v.Lifetime = NumberRange.new(0)
+            elseif v:IsA("Explosion") then
+                v.BlastPressure = 1
+                v.BlastRadius = 1
+            elseif v:IsA("Fire") or v:IsA("SpotLight") or v:IsA("Smoke") or v:IsA("Sparkles") then
+                v.Enabled = false
+            elseif v:IsA("MeshPart") and decalsyeeted then
+                v.Material = "Plastic"
+                v.Reflectance = 0
+                v.TextureID = 10385902758728957
+            elseif v:IsA("SpecialMesh") and decalsyeeted then
+                v.TextureId=0
+            elseif v:IsA("ShirtGraphic") and decalsyeeted then
+                v.ShirtGraphic=1
+            elseif (v:IsA("Shirt") or v:IsA("Pants")) and decalsyeeted then
+                v[v.ClassName.."Template"]=1
+                elseif v.Name == "Foilage" and v:IsA("Folder") then
+                v:Destroy()
+            elseif string.find(v.Name, "^Tree.*$") or string.find(v.Name, "Water") or string.find(v.Name, "^Bush.*$") or string.find(v.Name, "^grass.*$") then
+                task.wait()
+                v:Destroy()
+            elseif string.find(v.Name, "Model") or string.find(v.Name, "Debris") or string.find(v.Name, "Interactable") then
+                v:Destroy()
+            end
+            task.wait()
+        end)
+         
+        if HIDE_PETS then
+        pcall(function()
+            for _, v in pairs(game:GetService("Workspace"):FindFirstChild("__THINGS"):GetChildren()) do
+                if table.find({"Pets"}, v.Name) then
+                    v:Destroy()
+                end
+            end
+            end)
+        end
+  	end    
+})
+
+AutoTab:AddToggle({
+    Name = "Auto Fish",
+    Default = false,
+    Callback = function(Value)
+        if Value = true then
+            getgenv().autoFishing = true
+            getgenv().autoFishingConfig = {
+                OPTIMIZE_GAME = true,
+                HIDE_PLAYER = true
+            }
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/fdvll/pet-simulator-99/main/optimized-auto-fish.lua"))()
+        else
+            getgenv().autoFishing = false
+            getgenv().autoFishingConfig = {
+                OPTIMIZE_GAME = false,
+                HIDE_PLAYER = false
+            }
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/fdvll/pet-simulator-99/main/optimized-auto-fish.lua"))()
+        end
+    end
+})
+
+FarmTab:AddToggle({
+    Name = "Auto Collect orbs",
+    Default = false,
+    Callback = function(Value)
+        if Value = true then
+            game:GetService("Workspace").__THINGS:FindFirstChild("Orbs").ChildAdded:Connect(function(orb)
+                task.wait()
+                if orb then
+                    game:GetService("ReplicatedStorage").Network["Orbs: Collect"]:FireServer({[1] = {[1] = tonumber(orb.Name)}})
+                    orb:Destroy()
+                end
+            end)
+        else
+            game.Players.LocalPlayer.PlayerGui.Things.FindFirstChild("Orbs").ChildAdded:Disconnect()
+        end
+    end
+})
+
+FarmTab:AddToggle({
+    Name = "Auto Collect Lootbags",
+    Default = false,
+    Callback = function(Value)
+        if Value = true then
+            game.Players.LocalPlayer.PlayerGui.Things.FindFirstChild("Lootbags").ChildAdded:Connect(function(lootbag)
+                task.wait()
+                if lootbag then
+                    game.ReplicatedStorage.Network.Lootbags_Claim:FireServer({[1] = {[1] = lootbag.Name}})
+                    lootbag:Destroy()
+                end
+            end)
+        else
+            game.Players.LocalPlayer.PlayerGui.Things.FindFirstChild("Lootbags").ChildAdded:Disconnect()
+        end
+    end
+})
+
+
+
+MiscTab:AddButton({
+	Name = "Goodbye",
+	Callback = function()
+        OrionLib:Destroy()
+  	end    
+})
+
+--[[
+Name = <string> - The name of the button.
+Callback = <function> - The function of the button.
+]]
+-- Display the script hub
+OrionLib:Init()
+
+-- End of Seppe Ware script hub
